@@ -3,11 +3,12 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import Tuple, List
 
+from sklearn.cluster import SpectralClustering
 from sklearn.datasets import make_biclusters
 from sklearn.metrics import consensus_score
 from tqdm import trange
 from generate import Dataset, make_checkerboard_with_custom_distribution, Distribution
-from utils import get_biclusters_from_labels
+from utils import get_biclusters_from_labels, get_submatrix_from_labels
 
 
 def norm(x: NDArray, indices: NDArray) -> float:
@@ -57,7 +58,7 @@ def k_means(data_matrix: NDArray, n_clusters: int, *, eps=1.e-6):
 
     size, _ = data_matrix.shape
     labels = np.random.randint(0, n_clusters, size)
-    loss = np.infty
+    loss = np.inf
     centroids = maximization_step(data_matrix, labels, n_clusters)
 
     while True:
@@ -82,11 +83,8 @@ def alternating_k_means_biclustering(
         I, J = preserved_labels, processed_labels
         centroids = []
         for j in range(n_clusters):
-            rows_j = X[np.where(J == j)]
-            if rows_j.size == 0:
-                raise ValueError(f"Cluster {j} is left empty")
-            I_j = np.where(I == j)
-            centroid_j = np.mean([row[I_j] for row in rows_j], axis=0)
+            submatrix = get_submatrix_from_labels(X, J, I, j, j)
+            centroid_j = np.mean(submatrix, axis=0)
             centroids.append(centroid_j)
         return centroids
 
@@ -99,9 +97,9 @@ def alternating_k_means_biclustering(
         X, I, J, C = current_matrix, preserved_labels, processed_labels, new_centroids
         updated_labels = np.zeros(X.shape[0], dtype=np.int32)
         for i in range(X.shape[0]):
-            updated_labels[i] = np.argmin(
-                [np.linalg.norm(X[i][np.where(I == j)] - C[j]) ** 2 / I[np.where(I == j)].size for j in
-                 range(n_clusters)])
+            # I[np.where(I == j)]
+            norms = [np.linalg.norm(X[i][np.where(I == j)] - C[j]) ** 2 / C[j].size for j in range(n_clusters)]
+            updated_labels[i] = np.argmin(norms)
         return updated_labels
 
     def alternate_iteration(
@@ -117,45 +115,52 @@ def alternating_k_means_biclustering(
             loss = 0
             for i in range(X.shape[0]):
                 row = X[i]
-                norms = np.array([np.linalg.norm(row[np.where(I == j)] - C[j])**2 / I[np.where(I == j)].size
+                norms = np.array([np.linalg.norm(row[np.where(I == j)] - C[j])**2 / C[j].size
                                   for j in range(n_clusters)])
                 idx = np.argmin(norms)
                 loss += norms[idx]
             return loss / X.shape[0]
 
-        alt_loss = np.infty
+        alt_loss = np.inf
 
-        while True:
-            alt_centroids = update_step(X, I, J)
-            J = assignment_step(X, I, J, alt_centroids)
-            new_loss = get_loss(alt_centroids)
-            if alt_loss - new_loss < eps:
-                break
-            alt_loss = new_loss
+        continue_flag = True
+
+        while continue_flag:
+            try:
+                alt_centroids = update_step(X, I, J)
+                J = assignment_step(X, I, J, alt_centroids)
+                new_loss = get_loss(alt_centroids)
+                if alt_loss - new_loss < eps:
+                    continue_flag = False
+                alt_loss = new_loss
+            except IndexError:
+                continue_flag = False
 
         return alt_loss, J
 
     n_rows, m_cols = data_matrix.shape
-    total_loss = np.infty
+    total_loss = np.inf
 
     # row_labels = k_means(data_matrix, n_clusters)
     # col_labels = k_means(data_matrix.T, n_clusters)
-    #
+
     # row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels)
 
     row_labels = np.random.randint(0, n_clusters, n_rows)
     col_labels = np.random.randint(0, n_clusters, m_cols)
 
     while True:
-        try:
-            row_loss, row_labels = alternate_iteration(data_matrix, col_labels, row_labels)
-            col_loss, col_labels = alternate_iteration(data_matrix.T, row_labels, col_labels)
-            if total_loss - (row_loss + col_loss) < eps * 2:
-                break
-            total_loss = row_loss + col_loss
-            print(f"Loss: {total_loss}")
-        except ValueError:
+        row_loss, row_labels = alternate_iteration(data_matrix, col_labels, row_labels)
+        col_loss, col_labels = alternate_iteration(data_matrix.T, row_labels, col_labels)
+
+        if col_loss + row_loss == np.inf:
             break
+
+        if total_loss - (row_loss + col_loss) < eps * 2:
+            break
+
+        total_loss = row_loss + col_loss
+        print(f"Loss: {total_loss}")
     print("End")
     row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels)
     return row_labels, col_labels, total_loss
@@ -188,7 +193,7 @@ ax2.set_title("Shuffled dataset")
 
 # calculate cluster assignments using an iterative algorithm
 
-n_runs = 5
+n_runs = 10
 labels: List[Tuple[NDArray, NDArray]] = []
 losses: List[float] = []
 for _ in range(n_runs):

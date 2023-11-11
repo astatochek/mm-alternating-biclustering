@@ -23,3 +23,20 @@ def get_biclusters_from_labels(
         col_clusters[col_labels[col_idx]][col_idx] = True
 
     return row_clusters, col_clusters
+
+
+def get_submatrix_from_labels(
+        data_matrix: NDArray,
+        row_labels: NDArray, col_labels: NDArray,
+        row_cluster: int, col_cluster: int
+) -> NDArray:
+
+    if row_cluster not in row_labels:
+        raise IndexError('row cluster not in labels')
+    row_indices = np.where(row_labels == row_cluster)
+
+    if col_cluster not in col_labels:
+        raise IndexError('col cluster not in labels')
+    col_indices = np.where(col_labels == col_cluster)
+
+    return data_matrix[np.ix_(*row_indices, *col_indices)]
