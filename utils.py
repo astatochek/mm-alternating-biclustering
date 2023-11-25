@@ -40,3 +40,18 @@ def get_submatrix_from_labels(
     col_indices = np.where(col_labels == col_cluster)
 
     return data_matrix[np.ix_(*row_indices, *col_indices)]
+
+
+def get_reordered_row_labels(
+        data_matrix: NDArray,
+        row_labels: NDArray,
+        col_labels: NDArray,
+        n_clusters
+) -> NDArray:
+    blocks = np.zeros((n_clusters, n_clusters))
+    for i in range(n_clusters):
+        for j in range(n_clusters):
+            blocks[i][j] = np.mean(get_submatrix_from_labels(data_matrix, row_labels, col_labels, i, j))
+    reordered_row_labels = np.array([np.argmax(row) for row in blocks])
+    reorder = np.vectorize(lambda i: reordered_row_labels[i])
+    return reorder(row_labels)
