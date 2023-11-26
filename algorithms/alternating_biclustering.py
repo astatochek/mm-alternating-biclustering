@@ -24,7 +24,17 @@ def get_loss(X: NDArray, C: List[NDArray], I: NDArray, J: NDArray, k: int) -> fl
     for i in range(n_rows):
         j = J[i]
         loss += np.linalg.norm(X[i][I_[j]] - C[j]) ** 2 / C[j].size
-    return loss / X.shape[0]
+    return loss / n_rows
+
+
+def get_penalized_loss(X: NDArray, C: List[NDArray], I: NDArray, J: NDArray, k: int) -> float:
+    loss = get_loss(X, C, I, J, k)
+    lamda = .5
+    X_F = np.linalg.norm(X) ** 2
+    for j in range(1, k):
+        try: loss += lamda * X_F / (np.linalg.norm(get_submatrix_from_labels(X, J, I, j, j)) ** 2 + 1)
+        except IndexError: return np.inf
+    return loss
 
 
 def update_step(X: NDArray, I: NDArray, J: NDArray, k: int) -> List[NDArray]:
@@ -54,8 +64,12 @@ def assignment_step(
 
 
 def alternate_iteration(X: NDArray, I: NDArray, J: NDArray, k: int, eps: float) -> Tuple[float, NDArray]:
-    loss = np.inf
     continue_flag = True
+    try:
+        C = update_step(X, I, J, k)
+        loss = get_loss(X, C, I, J, k)
+    except IndexError: return np.inf, J
+
     while continue_flag:
         try:
             C = update_step(X, I, J, k)
@@ -68,6 +82,7 @@ def alternate_iteration(X: NDArray, I: NDArray, J: NDArray, k: int, eps: float) 
         except IndexError:
             continue_flag = False
     print("End inter")
+    loss = get_penalized_loss(X, C, I, J, k)
     return loss, J
 
 
@@ -80,7 +95,6 @@ def alternating_k_means_biclustering(
     total_loss = np.inf
 
     row_labels, _ = k_means(data_matrix, n_clusters)
-    # row_labels = np.random.randint(0, n_clusters, data_matrix.shape[0])
     col_labels, _ = k_means(data_matrix.T, n_clusters)
 
     # try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
@@ -131,14 +145,17 @@ def show(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
     # calculate cluster assignments using an iterative algorithm
     labels: List[Tuple[NDArray, NDArray]] = []
     scores: List[float] = []
+    losses: List[float] = []
     for _ in range(n_runs):
         row_labels, col_labels, loss, __row_labels, __col_labels = alternating_k_means_biclustering(data, n_clusters)
         score = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
                         (rows[:, row_idx], cols[:, col_idx]))
         labels.append((row_labels, col_labels))
         scores.append(score)
-    row_labels, col_labels = labels[np.argmax(scores)]
-    print(scores)
+        losses.append(loss)
+    row_labels, col_labels = labels[np.argmin(losses)]
+
+    print(pd.DataFrame({"SCORE": scores, "LOSS": losses}))
 
     # reorder rows and cols of a data matrix to show clusters
     fit_data = data[np.argsort(row_labels)]
@@ -183,14 +200,14 @@ def run(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
 
 
 show(
-    shape=(1000, 1000),
-    n_clusters=4,
+    shape=(100, 100),
+    n_clusters=3,
     noise=10,
     n_runs=10
 )
 # df = pd.DataFrame(
 #     run(
-#         shape=(1000, 1000),
+#         shape=(300, 300),
 #         n_clusters=4,
 #         noise=10,
 #         n_runs=10
