@@ -8,8 +8,8 @@ from sklearn.cluster import SpectralClustering
 from sklearn.datasets import make_biclusters
 from sklearn.metrics import consensus_score
 from tqdm import trange
-from generate import Dataset, make_checkerboard_with_custom_distribution, Distribution
-from utils import get_biclusters_from_labels, get_submatrix_from_labels, get_reordered_row_labels
+from generate import Dataset, make_checkerboard_with_custom_distribution, Distribution, make_biclusters_simulation_1
+from utils import get_biclusters_from_labels, get_submatrix_from_labels, get_reordered_row_labels, run_n_times
 from algorithms.kmeans import k_means
 
 
@@ -29,7 +29,7 @@ def get_loss(X: NDArray, C: List[NDArray], I: NDArray, J: NDArray, k: int) -> fl
 
 def get_penalized_loss(X: NDArray, C: List[NDArray], I: NDArray, J: NDArray, k: int) -> float:
     loss = get_loss(X, C, I, J, k)
-    lamda = .5
+    lamda = .1
     X_F = np.linalg.norm(X) ** 2
     for j in range(1, k):
         try: loss += lamda * X_F / (np.linalg.norm(get_submatrix_from_labels(X, J, I, j, j)) ** 2 + 1)
@@ -78,10 +78,10 @@ def alternate_iteration(X: NDArray, I: NDArray, J: NDArray, k: int, eps: float) 
             if np.abs(loss - new_loss) < eps:
                 continue_flag = False
             loss = new_loss
-            print(f"Loss inter: {loss}")
+            # print(f"Loss inter: {loss}")
         except IndexError:
             continue_flag = False
-    print("End inter")
+    # print("End inter")
     loss = get_penalized_loss(X, C, I, J, k)
     return loss, J
 
@@ -91,7 +91,7 @@ def alternating_k_means_biclustering(
         n_clusters: int,
         *,
         eps=1.e-6
-) -> Tuple[NDArray, NDArray, float, NDArray, NDArray]:
+) -> Tuple[NDArray, NDArray, float]:
     total_loss = np.inf
 
     row_labels, _ = k_means(data_matrix, n_clusters)
@@ -100,9 +100,9 @@ def alternating_k_means_biclustering(
     # try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
     # except IndexError: return row_labels, col_labels, total_loss, row_labels, col_labels
 
-    init_row_labels, init_col_labels = np.copy(row_labels), np.copy(col_labels)
-    try: init_row_labels = get_reordered_row_labels(data_matrix, init_row_labels, init_col_labels, n_clusters)
-    except IndexError: return row_labels, col_labels, total_loss, row_labels, col_labels
+    # init_row_labels, init_col_labels = np.copy(row_labels), np.copy(col_labels)
+    # try: init_row_labels = get_reordered_row_labels(data_matrix, init_row_labels, init_col_labels, n_clusters)
+    # except IndexError: return row_labels, col_labels, total_loss
 
     while True:
         row_loss, row_labels = alternate_iteration(data_matrix, col_labels, np.copy(row_labels), n_clusters, eps / 2)
@@ -114,10 +114,10 @@ def alternating_k_means_biclustering(
         if np.abs(total_loss - (row_loss + col_loss)) < eps: break
 
         total_loss = row_loss + col_loss
-        print(f"Loss total: {total_loss}")
-    print("End total")
+    #     print(f"Loss total: {total_loss}")
+    # print("End total")
     try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
-    finally: return row_labels, col_labels, total_loss, init_row_labels, init_col_labels
+    finally: return row_labels, col_labels, total_loss
 
 
 def show(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
@@ -125,8 +125,9 @@ def show(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
         1, 3, figsize=(11, 4), layout='constrained', dpi=200)
 
     # generate data matrix with cluster assignments
-    data, rows, cols = make_biclusters(
-        shape=shape, n_clusters=n_clusters, noise=noise, shuffle=False)
+    # data, rows, cols = make_biclusters(
+    #     shape=shape, n_clusters=n_clusters, noise=noise, shuffle=False)
+    data, rows, cols = make_biclusters_simulation_1(shape=shape)
 
     # show original dataset with visible clusters
     ax1.matshow(data, cmap=plt.cm.Blues)
@@ -142,20 +143,12 @@ def show(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
     ax2.matshow(data, cmap=plt.cm.Blues)
     ax2.set_title("Shuffled dataset")
 
-    # calculate cluster assignments using an iterative algorithm
-    labels: List[Tuple[NDArray, NDArray]] = []
-    scores: List[float] = []
-    losses: List[float] = []
-    for _ in range(n_runs):
-        row_labels, col_labels, loss, __row_labels, __col_labels = alternating_k_means_biclustering(data, n_clusters)
-        score = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
-                        (rows[:, row_idx], cols[:, col_idx]))
-        labels.append((row_labels, col_labels))
-        scores.append(score)
-        losses.append(loss)
-    row_labels, col_labels = labels[np.argmin(losses)]
 
-    print(pd.DataFrame({"SCORE": scores, "LOSS": losses}))
+    row_labels, col_labels = run_n_times(
+        algorithm=alternating_k_means_biclustering,
+        args=(data, n_clusters),
+        n_runs=10
+    )
 
     # reorder rows and cols of a data matrix to show clusters
     fit_data = data[np.argsort(row_labels)]
@@ -174,34 +167,37 @@ def show(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
     plt.show()
 
 
-def run(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
 
-    data, rows, cols = make_biclusters(
-        shape=shape, n_clusters=n_clusters, noise=noise, shuffle=False)
 
-    # shuffle data
-    rng = np.random.RandomState(0)
-    row_idx = rng.permutation(data.shape[0])
-    col_idx = rng.permutation(data.shape[1])
-    data = data[row_idx][:, col_idx]
 
-    kms_scores, alt_scores = [0] * n_runs, [0] * n_runs
-
-    for i in range(n_runs):
-        row_labels, col_labels, loss, init_row_labels, init_col_labels = alternating_k_means_biclustering(data, n_clusters)
-
-        alt_scores[i] = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
-                                (rows[:, row_idx], cols[:, col_idx]))
-
-        kms_scores[i] = consensus_score(get_biclusters_from_labels(shape, n_clusters, init_row_labels, init_col_labels),
-                                (rows[:, row_idx], cols[:, col_idx]))
-
-    return {"ALT": alt_scores, "KMS": kms_scores}
+# def run(shape: Tuple[int, int], n_clusters: int, noise: int, n_runs: int):
+#
+#     data, rows, cols = make_biclusters(
+#         shape=shape, n_clusters=n_clusters, noise=noise, shuffle=False)
+#
+#     # shuffle data
+#     rng = np.random.RandomState(0)
+#     row_idx = rng.permutation(data.shape[0])
+#     col_idx = rng.permutation(data.shape[1])
+#     data = data[row_idx][:, col_idx]
+#
+#     kms_scores, alt_scores = [0] * n_runs, [0] * n_runs
+#
+#     for i in range(n_runs):
+#         row_labels, col_labels, loss = alternating_k_means_biclustering(data, n_clusters)
+#
+#         alt_scores[i] = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
+#                                 (rows[:, row_idx], cols[:, col_idx]))
+#
+#         kms_scores[i] = consensus_score(get_biclusters_from_labels(shape, n_clusters, init_row_labels, init_col_labels),
+#                                 (rows[:, row_idx], cols[:, col_idx]))
+#
+#     return {"ALT": alt_scores, "KMS": kms_scores}
 
 
 show(
-    shape=(100, 100),
-    n_clusters=3,
+    shape=(500, 500),
+    n_clusters=2,
     noise=10,
     n_runs=10
 )

@@ -2,6 +2,8 @@ from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
 
+from utils import get_reordered_row_labels
+
 
 def k_means(data_matrix: NDArray, n_clusters: int, *, eps=1.e-6) -> Tuple[NDArray, float]:
     def expectation_step(current_matrix: NDArray, new_centroids: NDArray) -> NDArray:
@@ -43,3 +45,15 @@ def k_means(data_matrix: NDArray, n_clusters: int, *, eps=1.e-6) -> Tuple[NDArra
         loss = updated_loss
 
     return labels, loss
+
+
+def k_means_biclustering(
+    data_matrix: NDArray,
+    n_clusters: int,
+    *,
+    eps=1.e-6
+) -> Tuple[NDArray, NDArray, float]:
+    row_labels, row_loss = k_means(data_matrix, n_clusters, eps=eps)
+    col_labels, col_loss = k_means(data_matrix.T, n_clusters, eps=eps)
+    try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
+    finally: return row_labels, col_labels, row_loss + col_loss

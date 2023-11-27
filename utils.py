@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Callable, List
 from numpy.typing import NDArray
 import numpy as np
 
@@ -55,3 +55,19 @@ def get_reordered_row_labels(
     reordered_row_labels = np.array([np.argmax(row) for row in blocks])
     reorder = np.vectorize(lambda i: reordered_row_labels[i])
     return reorder(row_labels)
+
+
+def run_n_times(
+        algorithm: Callable[[NDArray, int], Tuple[NDArray, NDArray, float]],
+        args: Tuple[NDArray, int],
+        n_runs: int
+) -> Tuple[NDArray, NDArray]:
+    labels: List[Tuple[NDArray, NDArray]] = []
+    losses: List[float] = []
+
+    for _ in range(n_runs):
+        row_labels, col_labels, loss = algorithm(*args)
+        labels.append((row_labels, col_labels))
+        losses.append(loss)
+
+    return labels[np.argmin(losses)]
