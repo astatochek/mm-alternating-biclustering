@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 from enum import Enum
 
-from numpy._typing import NDArray
+from numpy.typing import NDArray
 
 
 class Distribution(Enum):

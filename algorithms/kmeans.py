@@ -1,7 +1,6 @@
 from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
-
 from utils import get_reordered_row_labels
 
 

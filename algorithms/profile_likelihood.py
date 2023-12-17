@@ -1,14 +1,14 @@
 import numpy as np
 from numpy.typing import NDArray
 from utils import get_submatrix_from_labels
-from typing import Tuple, Literal
+from typing import Tuple
 
 
-def entropy(size: int, sum: float) -> float:
+def entropy(size: int, sum_: float) -> float:
     """Gaussian"""
     if size <= 0:
         return 0
-    mean = sum / size
+    mean = sum_ / size
     # return 0.5 * sum * mean
     return mean ** 2
 
@@ -64,9 +64,6 @@ def profile_likelihood_biclustering(
         cur_criterion = new_cur_criterion
 
         assignment_list = []
-        # print(cur_criterion)
-        # print(row_labels)
-        # print(col_labels)
 
         for i in range(n_rows):
             row_label = row_labels[i]
@@ -159,7 +156,7 @@ def profile_likelihood_biclustering(
                 col_labels[idx] = assignment_label
 
     final_criterion = criterion(data_matrix, row_labels, col_labels, n_clusters)
-    print(final_criterion, row_labels, col_labels)
+    # print(final_criterion, row_labels, col_labels)
 
     return (
         row_labels,
