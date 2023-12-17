@@ -32,11 +32,11 @@ def get_submatrix_from_labels(
 ) -> NDArray:
 
     if row_cluster not in row_labels:
-        raise IndexError('row cluster not in labels')
+        raise IndexError(f'row cluster {row_cluster} not in labels: {row_labels}')
     row_indices = np.where(row_labels == row_cluster)
 
     if col_cluster not in col_labels:
-        raise IndexError('col cluster not in labels')
+        raise IndexError(f'col cluster {col_cluster} not in labels: {col_labels}')
     col_indices = np.where(col_labels == col_cluster)
 
     return data_matrix[np.ix_(*row_indices, *col_indices)]
