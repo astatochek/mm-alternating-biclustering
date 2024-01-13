@@ -9,6 +9,8 @@ from tqdm import trange
 from algorithms.BBAC import bregman_block_average_coclustering
 from algorithms.alternating_biclustering import alternating_k_means_biclustering
 from algorithms.kmeans import k_means_biclustering
+from algorithms.profile_likelihood import profile_likelihood_biclustering
+from algorithms.test_algorithm import test_algo
 from utils import get_biclusters_from_labels
 
 
@@ -95,7 +97,7 @@ def sims_mean_scores(
         *,
         score_multiplier=1.,
 ):
-    scores = {'AKM 0': [], 'AKM 0.1': [], 'AKM 1': [], 'KM': [], 'BBAC': []}
+    scores = {'AKM 0': [], 'AKM 0.1': [], 'AKM 1': [], 'KM': [], 'ASAP': []}
 
     for _ in trange(n_simulations):
         data, rows, cols = generator(**generator_args)
@@ -149,6 +151,24 @@ def sims_mean_scores(
                 case 'BBAC':
                     row_labels, col_labels = run_n_times(
                         algorithm=bregman_block_average_coclustering,
+                        args={
+                            "data_matrix": data,
+                            "n_clusters": n_clusters,
+                        },
+                        n_runs=n_runs_per_simulation
+                    )
+                case 'PL':
+                    row_labels, col_labels = run_n_times(
+                        algorithm=profile_likelihood_biclustering,
+                        args={
+                            "data_matrix": data,
+                            "n_clusters": n_clusters,
+                        },
+                        n_runs=n_runs_per_simulation
+                    )
+                case 'ASAP':
+                    row_labels, col_labels = run_n_times(
+                        algorithm=test_algo,
                         args={
                             "data_matrix": data,
                             "n_clusters": n_clusters,
