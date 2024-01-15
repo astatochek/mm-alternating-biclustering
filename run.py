@@ -33,19 +33,18 @@ def run_n_times(
 def show(
         shape: Tuple[int, int],
         n_clusters: int,
-        generator: Callable,
-        generator_args: Dict,
+        generate_data: Callable,
         algorithm: Callable,
         n_runs: int,
         algorithm_name: str,
         *,
-        cm = plt.cm.Blues
+        cm=plt.cm.Blues
 ):
     fig, (ax1, ax2, ax3) = plt.subplots(
         1, 3, figsize=(11, 4), layout='constrained', dpi=200)
 
     b = .5
-    data, rows, cols = generator(**generator_args)
+    data, rows, cols = generate_data()
 
     # show original dataset with visible clusters
     ax1.matshow(data, cmap=cm)
@@ -91,8 +90,7 @@ def sims_mean_scores(
         n_simulations: int,
         n_runs_per_simulation: int,
         shape: Tuple[int, int],
-        generator: Callable,
-        generator_args: Dict,
+        generate_data: Callable,
         n_clusters: int,
         *,
         score_multiplier=1.,
@@ -100,7 +98,7 @@ def sims_mean_scores(
     scores = {'AKM 0': [], 'AKM 0.1': [], 'AKM 1': [], 'KM': [], 'ASAP': []}
 
     for _ in trange(n_simulations):
-        data, rows, cols = generator(**generator_args)
+        data, rows, cols = generate_data()
 
         rng = np.random.RandomState(0)
         row_idx = rng.permutation(data.shape[0])

@@ -48,23 +48,23 @@ def get_new_labels(x: NDArray, labels: NDArray, n_clusters: int, mu: NDArray, si
     return new_labels
 
 
-def calc_one_axis_loss(x: NDArray, labels: NDArray, mu: NDArray, sigma: NDArray, n_clusters: int):
+def calc_one_axis_loss(x: NDArray, assigned_labels: NDArray, preserved_labels: NDArray, mu: NDArray, sigma: NDArray, n_clusters: int):
     n, _ = x.shape
     return np.sum(
-        [calc_vector_loss(x[i], labels, n_clusters, mu[labels[i]], sigma[labels[i]]) for i in
+        [calc_vector_loss(x[i], preserved_labels, n_clusters, mu[assigned_labels[i]], sigma[assigned_labels[i]]) for i in
          range(n)])
 
 
 def calc_total_loss(x: NDArray, row_labels: NDArray, col_labels: NDArray, n_clusters: int, mu: NDArray, sigma: NDArray):
-    row_loss = calc_one_axis_loss(x, col_labels, mu, sigma, n_clusters)
-    col_loss = calc_one_axis_loss(x.T, row_labels, mu.T, sigma.T, n_clusters)
+    row_loss = calc_one_axis_loss(x, row_labels, col_labels, mu, sigma, n_clusters)
+    col_loss = calc_one_axis_loss(x.T, col_labels, row_labels, mu.T, sigma.T, n_clusters)
     return row_loss + col_loss
 
 
 def test_algo(data_matrix: NDArray, n_clusters: int, *, eps=1.e-6):
     n_rows, n_cols = data_matrix.shape
     row_labels = np.random.randint(0, n_clusters, n_rows)
-    col_labels = np.random.randint(0, n_clusters, n_rows)
+    col_labels = np.random.randint(0, n_clusters, n_cols)
     mu, sigma = calc_mu_and_sigma(data_matrix, row_labels, col_labels, n_clusters)
     loss = calc_total_loss(data_matrix, row_labels, col_labels, n_clusters, mu, sigma)
 
@@ -84,7 +84,7 @@ def test_algo(data_matrix: NDArray, n_clusters: int, *, eps=1.e-6):
             break
         loss = _loss
         i += 1
-        print(f"Iter: {i}, Loss: {loss}")
+        # print(f"Iter: {i}, Loss: {loss}")
 
     row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
-    return row_labels, col_labels, -loss
+    return row_labels, col_labels, loss
