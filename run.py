@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 from sklearn.metrics import consensus_score
 from tqdm import trange
 
-from algorithms.BBAC import bregman_block_average_coclustering
+from algorithms.BBAC import BBAC
 from algorithms.alternating_biclustering import alternating_k_means_biclustering
 from algorithms.kmeans import k_means_biclustering
 from algorithms.profile_likelihood import profile_likelihood_biclustering
@@ -38,52 +38,51 @@ def show(
         n_runs: int,
         algorithm_name: str,
         *,
-        cm=plt.cm.Blues
+        cm=plt.cm.Blues,
+        score_multiplier=1.
 ):
-    fig, (ax1, ax2, ax3) = plt.subplots(
-        1, 3, figsize=(11, 4), layout='constrained', dpi=200)
+    _data, _rows, _cols = generate_data()
 
-    b = .5
-    data, rows, cols = generate_data()
+    for _ in range(n_runs):
+        data, rows, cols = np.copy(_data), np.copy(_rows), np.copy(_cols)
 
-    # show original dataset with visible clusters
-    ax1.matshow(data, cmap=cm)
-    ax1.set_title("Original dataset")
+        fig, (ax1, ax2, ax3) = plt.subplots(
+            1, 3, figsize=(11, 4), layout='constrained', dpi=200)
 
-    # shuffle data
-    rng = np.random.RandomState(0)
-    row_idx = rng.permutation(data.shape[0])
-    col_idx = rng.permutation(data.shape[1])
-    data = data[row_idx][:, col_idx]
+        # show original dataset with visible clusters
+        ax1.matshow(data, cmap=cm)
+        ax1.set_title("Original dataset")
 
-    # show shuffled data
-    ax2.matshow(data, cmap=cm)
-    ax2.set_title("Shuffled dataset")
+        rng = np.random.RandomState(np.random.randint(100))
+        row_idx = rng.permutation(data.shape[0])
+        col_idx = rng.permutation(data.shape[1])
+        data = data[row_idx][:, col_idx]
 
-    row_labels, col_labels = run_n_times(
-        algorithm=algorithm,
-        args={
-            "data_matrix": data,
-            "n_clusters": n_clusters
-        },
-        n_runs=n_runs
-    )
+        ax2.matshow(data, cmap=cm)
+        ax2.set_title("Shuffled dataset")
 
-    # reorder rows and cols of a data matrix to show clusters
-    fit_data = data[np.argsort(row_labels)]
-    fit_data = fit_data[:, np.argsort(col_labels)]
+        row_labels, col_labels = run_n_times(
+            algorithm=algorithm,
+            args={
+                "data_matrix": data,
+                "n_clusters": n_clusters
+            },
+            n_runs=1
+        )
 
-    # show data matrix with reordered rows and cols according to calculated cluster assignments
-    ax3.matshow(fit_data, cmap=cm)
-    ax3.set_title(algorithm_name.title())
+        # reorder rows and cols of a data matrix to show clusters
+        fit_data = data[np.argsort(row_labels)]
+        fit_data = fit_data[:, np.argsort(col_labels)]
 
-    # calculate consensus score between expected and actual biclusters
-    score = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
-                            (rows[:, row_idx], cols[:, col_idx]))
+        # show data matrix with reordered rows and cols according to calculated cluster assignments
+        ax3.matshow(fit_data, cmap=cm)
 
-    print(f"Consensus Score: {score:.3f}")
+        # calculate consensus score between expected and actual biclusters
+        score = consensus_score(get_biclusters_from_labels(shape, n_clusters, row_labels, col_labels),
+                                (rows[:, row_idx], cols[:, col_idx]))
 
-    plt.show()
+        ax3.set_title(f"{algorithm_name.title()}: {score * score_multiplier:.3f}")
+        plt.show()
 
 
 def sims_mean_scores(
@@ -95,7 +94,7 @@ def sims_mean_scores(
         *,
         score_multiplier=1.,
 ):
-    scores = {'AKM 0': [], 'AKM 0.1': [], 'AKM 1': [], 'KM': [], 'ASAP': []}
+    scores = {'AKM 0': [], 'AKM 0.1': [], 'AKM 1': [], 'KM': [], 'BBAC': [], 'ASAP': []}
 
     for _ in trange(n_simulations):
         data, rows, cols = generate_data()
@@ -148,7 +147,7 @@ def sims_mean_scores(
                     )
                 case 'BBAC':
                     row_labels, col_labels = run_n_times(
-                        algorithm=bregman_block_average_coclustering,
+                        algorithm=BBAC,
                         args={
                             "data_matrix": data,
                             "n_clusters": n_clusters,

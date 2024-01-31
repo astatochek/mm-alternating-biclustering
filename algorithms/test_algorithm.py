@@ -2,6 +2,7 @@ from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
 from utils import get_submatrix_from_labels, get_reordered_row_labels
+from scipy.special import kl_div
 
 
 def calc_mu_and_sigma(x: NDArray, row_labels: NDArray, col_labels: NDArray, n_clusters: int) -> Tuple[
@@ -27,10 +28,15 @@ def calc_vector_loss(vec: NDArray, labels: NDArray, n_clusters: int, mu_k: NDArr
 
     for i in range(n_clusters):
         sample = vec[labels == i]
-        vec_mu[i] = np.mean(sample)
+        vec_mu[i] = np.mean((sample - mu_k[i]) ** 2)
         vec_sigma[i] = np.std(sample)
 
-    return a * np.linalg.norm(vec_mu - mu_k) ** 2 + b * np.linalg.norm(vec_sigma - sigma_k) ** 2
+    a_ = np.sum(kl_div(vec_mu, mu_k))
+    b_ = np.sum(kl_div(vec_sigma, sigma_k))
+
+    # return a * np.sum(kl_div(vec_mu, mu_k)) + b * np.sum(kl_div(vec_sigma, sigma_k))
+
+    return a * np.linalg.norm(vec_mu) ** 2 + b * np.linalg.norm(vec_sigma - sigma_k) ** 2
 
 
 def get_new_labels(x: NDArray, labels: NDArray, n_clusters: int, mu: NDArray, sigma: NDArray, iter: int) -> NDArray:
@@ -40,11 +46,12 @@ def get_new_labels(x: NDArray, labels: NDArray, n_clusters: int, mu: NDArray, si
         vec = x[i]
         loss_vec = np.array([calc_vector_loss(vec, labels, n_clusters, mu[k], sigma[k]) for k in range(n_clusters)])
         if np.random.rand() > iter / 10:
-            inv = 1 / (loss_vec + .1)
+            inv = 1 / (loss_vec + 10.)
             p = inv / np.sum(inv)
             new_labels[i] = np.argmax(np.random.multinomial(1, p))
         else:
             new_labels[i] = np.argmin(loss_vec)
+        # new_labels[i] = np.argmin(loss_vec)
     return new_labels
 
 

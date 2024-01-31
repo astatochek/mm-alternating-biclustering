@@ -23,8 +23,10 @@ def get_penalized_loss(X: NDArray, C: List[NDArray], I: NDArray, J: NDArray, k: 
     loss = get_loss(X, C, I, J, k)
     X_F = np.linalg.norm(X) ** 2
     for j in range(1, k):
-        try: loss += lamda * X_F / (np.linalg.norm(get_submatrix_from_labels(X, J, I, j, j)) ** 2 + 1)
-        except IndexError: return np.inf
+        try:
+            loss += lamda * X_F / (np.linalg.norm(get_submatrix_from_labels(X, J, I, j, j)) ** 2 + 1)
+        except IndexError:
+            return np.inf
     return loss
 
 
@@ -59,7 +61,8 @@ def alternate_iteration(X: NDArray, I: NDArray, J: NDArray, k: int, eps: float, 
     try:
         C = update_step(X, I, J, k)
         loss = get_loss(X, C, I, J, k)
-    except IndexError: return np.inf, J
+    except IndexError:
+        return np.inf, J
 
     while continue_flag:
         try:
@@ -95,18 +98,26 @@ def alternating_k_means_biclustering(
     # init_row_labels, init_col_labels = np.copy(row_labels), np.copy(col_labels)
     # try: init_row_labels = get_reordered_row_labels(data_matrix, init_row_labels, init_col_labels, n_clusters)
     # except IndexError: return row_labels, col_labels, total_loss
+    i = 0
 
     while True:
-        row_loss, row_labels = alternate_iteration(data_matrix, col_labels, np.copy(row_labels), n_clusters, eps / 2, lamda)
-        col_loss, col_labels = alternate_iteration(data_matrix.T, row_labels, np.copy(col_labels), n_clusters, eps / 2, lamda)
-        try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
-        except: break
+        row_loss, row_labels = alternate_iteration(data_matrix, col_labels, np.copy(row_labels), n_clusters, eps / 2,
+                                                   lamda)
+        col_loss, col_labels = alternate_iteration(data_matrix.T, row_labels, np.copy(col_labels), n_clusters, eps / 2,
+                                                   lamda)
+        try:
+            row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
+        except:
+            break
 
-        if col_loss + row_loss == np.inf: break
+        if col_loss + row_loss == np.inf or i >= 50: break
         if np.abs(total_loss - (row_loss + col_loss)) < eps: break
 
         total_loss = row_loss + col_loss
+        i += 1
     #     print(f"Loss total: {total_loss}")
     # print("End total")
-    try: row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
-    finally: return row_labels, col_labels, total_loss
+    try:
+        row_labels = get_reordered_row_labels(data_matrix, row_labels, col_labels, n_clusters)
+    finally:
+        return row_labels, col_labels, total_loss
