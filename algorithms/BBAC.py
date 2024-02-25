@@ -82,21 +82,19 @@ def BBAC(data_matrix: NDArray, n_clusters: int, eps=1e-8) -> tuple[NDArray, NDAr
         return mu
 
     def calc_loss(X: NDArray, mu: NDArray, row_labels: NDArray, col_labels: NDArray) -> float:
-        n_rows = X.shape[0]
-        n_cols = X.shape[0]
+        n_rows, n_cols  = X.shape
         return np.mean([(X[i][j] - mu[row_labels[i]][col_labels[j]])**2 for j in range(n_cols) for i in range(n_rows)])
 
-    n_rows = data_matrix.shape[0]
-    n_cols = data_matrix.shape[1]
+    n_rows, n_cols  = data_matrix.shape
 
     final_row_labels = np.random.randint(0, n_clusters, size=n_rows)
-    final_col_labels = np.random.randint(0, n_clusters, size=n_rows)
+    final_col_labels = np.random.randint(0, n_clusters, size=n_cols)
     final_mu = np.zeros((n_clusters, n_clusters))
     min_loss = calc_loss(data_matrix, final_mu, final_row_labels, final_col_labels)
 
     for _ in range(repeat):
         row_labels = np.random.randint(0, n_clusters, size=n_rows)
-        col_labels = np.random.randint(0, n_clusters, size=n_rows)
+        col_labels = np.random.randint(0, n_clusters, size=n_cols)
         mu = np.zeros((n_clusters, n_clusters))
         prev_loss = calc_loss(data_matrix, mu, row_labels, col_labels) + 1.
         loss = prev_loss - 1.

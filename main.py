@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from algorithms.BBAC import BBAC
 from algorithms.profile_likelihood import profile_likelihood_biclustering
-from algorithms.test_algorithm import test_algo
+from algorithms.test_algorithm import ASAP
 from generate import make_biclusters_simulation
 from sklearn.datasets import make_biclusters, make_checkerboard
 from run import show, sims_mean_scores
@@ -86,23 +86,23 @@ if __name__ == "__main__":
     #     score_multiplier=n_clusters
     # )
 
-    # n_clusters = 3
-    # shape = (300, 300)
-    # show(
-    #     shape=shape,
-    #     n_clusters=n_clusters,
-    #     generate_data=lambda: make_checkerboard(
-    #         shape=shape,
-    #         n_clusters=n_clusters,
-    #         noise=10,
-    #         shuffle=False
-    #     ),
-    #     algorithm=test_algo,
-    #     n_runs=5,
-    #     score_multiplier=n_clusters,
-    #     algorithm_name='ASAP',
-    #     cm=plt.cm.Blues
-    # )
+    n_clusters = 3
+    shape = (300, 300)
+    show(
+        shape=shape,
+        n_clusters=n_clusters,
+        generate_data=lambda: make_checkerboard(
+            shape=shape,
+            n_clusters=n_clusters,
+            noise=10,
+            shuffle=False
+        ),
+        algorithm=ASAP,
+        n_runs=5,
+        score_multiplier=n_clusters,
+        algorithm_name='ASAP',
+        cm=plt.cm.Blues
+    )
 
     # n_clusters = 2
     # shape = (50, 50)
@@ -122,24 +122,24 @@ if __name__ == "__main__":
     #     cm=plt.cm.Blues
     # )
 
-    b = .5
-    shape = (100, 100)
-    n_clusters = 3
-    print(
-        pd.DataFrame(
-            sims_mean_scores(
-                n_simulations=10,
-                n_runs_per_simulation=5,
-                shape=shape,
-                generate_data=lambda: make_biclusters(
-                    shape=shape,
-                    n_clusters=n_clusters,
-                    shuffle=False,
-                    noise=10
-                ),
-                score_multiplier=1,
-                n_clusters=n_clusters,
-            )
-        ).to_markdown()
-    )
+    # b = .5
+    # shape = (100, 100)
+    # n_clusters = 3
+    # print(
+    #     pd.DataFrame(
+    #         sims_mean_scores(
+    #             n_simulations=10,
+    #             n_runs_per_simulation=5,
+    #             shape=shape,
+    #             generate_data=lambda: make_biclusters(
+    #                 shape=shape,
+    #                 n_clusters=n_clusters,
+    #                 shuffle=False,
+    #                 noise=10
+    #             ),
+    #             score_multiplier=1,
+    #             n_clusters=n_clusters,
+    #         )
+    #     ).to_markdown()
+    # )
 
